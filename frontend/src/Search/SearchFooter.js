@@ -180,9 +180,11 @@ class SearchFooter extends Component {
         icon = icons.BOOK;
         break;
       case 'tvsearch':
+      case 'tvpack':
         icon = icons.TV;
         break;
       case 'movie':
+      case 'moviepack':
         icon = icons.FILM;
         break;
       case 'music':

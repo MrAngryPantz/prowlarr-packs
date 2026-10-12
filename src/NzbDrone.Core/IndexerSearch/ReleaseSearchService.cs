@@ -45,8 +45,61 @@ namespace NzbDrone.Core.IndexerSearch
                 "music" => MusicSearch(request, indexerIds, interactiveSearch),
                 "tvsearch" => TvSearch(request, indexerIds, interactiveSearch),
                 "book" => BookSearch(request, indexerIds, interactiveSearch),
+                "tvpack" => PackSearch(request, indexerIds, interactiveSearch, true),
+                "moviepack" => PackSearch(request, indexerIds, interactiveSearch, false),
                 _ => BasicSearch(request, indexerIds, interactiveSearch)
             };
+        }
+
+        private async Task<NewznabResults> PackSearch(NewznabRequest request, List<int> indexerIds, bool interactiveSearch, bool television)
+        {
+            if (string.IsNullOrWhiteSpace(request.q) || request.q.Contains('{') || request.q.Contains('}'))
+            {
+                throw new SearchFailedException("Enter a series or collection title without episode, season, year or ID query parameters for a pack search");
+            }
+
+            var basic = Get<BasicSearchCriteria>(request, indexerIds, interactiveSearch);
+            basic.SearchType = "search";
+
+            if (basic.Categories.Length == 0)
+            {
+                basic.Categories = new[] { television ? 5000 : 2000 };
+            }
+
+            var releases = await Dispatch(indexer =>
+            {
+                var tv = Get<TvSearchCriteria>(request, indexerIds, interactiveSearch);
+                tv.SearchType = "tvsearch";
+                tv.Categories = basic.Categories;
+                var movie = Get<MovieSearchCriteria>(request, indexerIds, interactiveSearch);
+                movie.SearchType = "movie";
+                movie.Categories = basic.Categories;
+
+                var capabilities = indexer.GetCapabilities();
+
+                if (television && capabilities.TvSearchParams.Contains(TvSearchParam.Q))
+                {
+                    return indexer.Fetch(tv);
+                }
+
+                if (!television && capabilities.MovieSearchParams.Contains(MovieSearchParam.Q))
+                {
+                    return indexer.Fetch(movie);
+                }
+
+                if (capabilities.SearchParams.Contains(SearchParam.Q))
+                {
+                    var query = Get<BasicSearchCriteria>(request, indexerIds, interactiveSearch);
+                    query.SearchType = "search";
+                    query.Categories = basic.Categories;
+                    return indexer.Fetch(query);
+                }
+
+                return Task.FromResult(new IndexerPageableQueryResult());
+            },
+            basic);
+
+            return new NewznabResults { Releases = DeDupeReleases(releases) };
         }
 
         private async Task<NewznabResults> MovieSearch(NewznabRequest request, List<int> indexerIds, bool interactiveSearch)

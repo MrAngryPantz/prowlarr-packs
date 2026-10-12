@@ -9,6 +9,7 @@ using NzbDrone.Core.Update;
 
 namespace NzbDrone.Core.Test.UpdateTests
 {
+    [Category("IntegrationTest")]
     public class UpdatePackageProviderFixture : CoreTest<UpdatePackageProvider>
     {
         [SetUp]

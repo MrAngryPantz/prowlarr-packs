@@ -63,6 +63,34 @@ namespace NzbDrone.Core.Test.IndexerTests.NewznabTests
             pages[0].Url.FullUri.Should().Contain("&offset=0");
         }
 
+        [TestCase(true, true)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(false, false)]
+        public void should_keep_title_on_supported_endpoint_for_pack_search(bool television, bool generic)
+        {
+            _capabilities.SearchParams = generic ? new List<SearchParam> { SearchParam.Q } : new List<SearchParam>();
+            _capabilities.TvSearchParams = new List<TvSearchParam> { TvSearchParam.Q };
+            _capabilities.MovieSearchParams = new List<MovieSearchParam> { MovieSearchParam.Q };
+            _tvSearchCriteria.SearchType = "tvsearch";
+            _tvSearchCriteria.Season = null;
+            _tvSearchCriteria.Episode = null;
+            _movieSearchCriteria.SearchType = "movie";
+            var requests = television ? Subject.GetSearchRequests(_tvSearchCriteria) : Subject.GetSearchRequests(_movieSearchCriteria);
+            var query = requests.GetAllTiers().First().First().Url.Query;
+            query.Should().Contain("q=Star");
+            query.Should().Contain("t=" + (generic ? "search" : television ? "tvsearch" : "movie"));
+            query.Should().NotContain("season=").And.NotContain("ep=").And.NotContain("imdbid=").And.NotContain("tmdbid=");
+        }
+
+        [Test]
+        public void should_not_turn_unsupported_title_search_into_rss()
+        {
+            _capabilities.SearchParams.Clear();
+            _capabilities.MovieSearchParams = new List<MovieSearchParam> { MovieSearchParam.ImdbId };
+            Subject.GetSearchRequests(_movieSearchCriteria).GetAllTiers().Should().BeEmpty();
+        }
+
         [Test]
         public void should_not_get_unlimited_pages()
         {

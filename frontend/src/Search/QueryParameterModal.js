@@ -17,6 +17,8 @@ const searchOptions = [
   { key: 'search', value: () => translate('BasicSearch') },
   { key: 'tvsearch', value: () => translate('TvSearch') },
   { key: 'movie', value: () => translate('MovieSearch') },
+  { key: 'tvpack', value: () => translate('MultiSeasonPackSearch') },
+  { key: 'moviepack', value: () => translate('MoviePackSearch') },
   { key: 'music', value: () => translate( 'AudioSearch') },
   { key: 'book', value: () => translate('BookSearch') }
 ];
@@ -143,6 +145,10 @@ class QueryParameterModal extends Component {
                 />
               </div>
             </FieldSet>
+
+            {(searchType === 'tvpack' || searchType === 'moviepack') &&
+              <p>{translate('PackSearchHelpText')}</p>
+            }
 
             {
               searchType === 'tvsearch' &&

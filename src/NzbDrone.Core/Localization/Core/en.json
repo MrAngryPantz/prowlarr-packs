@@ -1,5 +1,8 @@
 {
   "About": "About",
+  "MultiSeasonPackSearch": "Multi-season packs",
+  "MoviePackSearch": "Movie packs",
+  "PackSearchHelpText": "Enter the series or collection title. Searches use each indexer's supported title search without a season, episode or individual movie ID. Results may also contain individual releases. Sonarr or Radarr decides whether a pack matches your requests.",
   "AcceptConfirmationModal": "Accept Confirmation Modal",
   "Actions": "Actions",
   "ActiveApps": "Active Apps",

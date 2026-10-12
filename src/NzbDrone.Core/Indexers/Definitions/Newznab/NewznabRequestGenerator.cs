@@ -50,7 +50,7 @@ namespace NzbDrone.Core.Indexers.Newznab
             }
 
             //Workaround issue with Sphinx search returning garbage results on some indexers. If we don't use id parameters, fallback to t=search
-            if (parameters.Count == 0)
+            if (parameters.Count == 0 && (searchCriteria.SearchTerm.IsNullOrWhiteSpace() || capabilities.SearchAvailable))
             {
                 searchCriteria.SearchType = "search";
 
@@ -61,10 +61,15 @@ namespace NzbDrone.Core.Indexers.Newznab
             }
             else
             {
-                if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.MovieSearchAvailable)
+                if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.MovieSearchParams.Contains(MovieSearchParam.Q))
                 {
                     parameters.Set("q", NewsnabifyTitle(searchCriteria.SearchTerm));
                 }
+            }
+
+            if (parameters.Count == 0 && searchCriteria.SearchTerm.IsNotNullOrWhiteSpace())
+            {
+                return pageableRequests;
             }
 
             pageableRequests.Add(GetPagedRequests(searchCriteria,
@@ -159,7 +164,7 @@ namespace NzbDrone.Core.Indexers.Newznab
             }
 
             //Workaround issue with Sphinx search returning garbage results on some indexers. If we don't use id parameters, fallback to t=search
-            if (parameters.Count == 0)
+            if (parameters.Count == 0 && (searchCriteria.SearchTerm.IsNullOrWhiteSpace() || capabilities.SearchAvailable))
             {
                 searchCriteria.SearchType = "search";
 
@@ -170,10 +175,15 @@ namespace NzbDrone.Core.Indexers.Newznab
             }
             else
             {
-                if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.TvSearchAvailable)
+                if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.TvSearchParams.Contains(TvSearchParam.Q))
                 {
                     parameters.Set("q", NewsnabifyTitle(searchCriteria.SearchTerm));
                 }
+            }
+
+            if (parameters.Count == 0 && searchCriteria.SearchTerm.IsNotNullOrWhiteSpace())
+            {
+                return pageableRequests;
             }
 
             pageableRequests.Add(GetPagedRequests(searchCriteria,

@@ -1,0 +1,91 @@
+name: Pack search compatibility
+
+on:
+  push:
+    branches: [pack-searches]
+  pull_request:
+    branches: [pack-searches]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pack-searches-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: yarn
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build web interface
+        shell: bash
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
+          yarn tsc --noEmit --skipLibCheck
+          yarn build --env production
+      - name: Build Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: dotnet build src/Prowlarr.sln -c Release
+      - name: Test Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: dotnet test src/Prowlarr.sln -c Release --no-build --no-restore --filter 'Category!=ManualTest&Category!=IntegrationTest&Category!=AutomationTest&Category!=WINDOWS' --logger trx --results-directory test-results
+      - name: Exercise Linux application
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          ln -s ../UI _output/net8.0/UI
+          python scripts/test-pack-searches.py --app _output/net8.0/Prowlarr.dll
+      - name: Build Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/build-windows.ps1 -SkipUi
+      - name: Test Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $assemblies = Get-ChildItem '_tests/net8.0/win-x64/publish/*Test.dll' | Where-Object { $_.Name -notin @('Prowlarr.Automation.Test.dll', 'Prowlarr.Integration.Test.dll') } | ForEach-Object FullName
+          dotnet vstest $assemblies '/TestCaseFilter:Category!=ManualTest&Category!=IntegrationTest&Category!=AutomationTest&Category!=LINUX' '/Logger:trx' '/ResultsDirectory:test-results'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python scripts/test-pack-searches.py --app _artifacts/windows/Prowlarr/Prowlarr.Console.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Expand-Archive '_artifacts/prowlarr-packs-win-x64.zip' '_artifacts/Extracted Windows Package'
+          python scripts/test-pack-searches.py --app '_artifacts/Extracted Windows Package/Prowlarr/Prowlarr.exe'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ runner.os }}
+          path: test-results/*.trx
+          retention-days: 14
+      - name: Save Windows package
+        if: success() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: prowlarr-packs-win-x64
+          path: _artifacts/prowlarr-packs-win-x64.zip
+          compression-level: 0
+          retention-days: 7

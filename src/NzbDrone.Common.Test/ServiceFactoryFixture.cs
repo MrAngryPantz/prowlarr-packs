@@ -31,7 +31,7 @@ namespace NzbDrone.Common.Test
                 .AutoAddServices(Bootstrap.ASSEMBLIES)
                 .AddDummyDatabase()
                 .AddDummyLogDatabase()
-                .AddStartupContext(new StartupContext("first", "second"));
+                .AddStartupContext(new StartupContext("first", "second", "-data=" + TempFolder));
 
             container.RegisterInstance(new Mock<IHostLifetime>().Object);
             container.RegisterInstance(new Mock<IOptions<PostgresOptions>>().Object);

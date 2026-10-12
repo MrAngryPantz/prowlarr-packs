@@ -87,6 +87,7 @@ namespace NzbDrone.Core.Test.IndexerTests.TorznabTests
             var releases = (await Subject.Fetch(new MovieSearchCriteria())).Releases;
 
             releases.Should().HaveCount(0);
+            NzbDrone.Test.Common.ExceptionVerification.ExpectedWarns(5);
         }
 
         [Test]
