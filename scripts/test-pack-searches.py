@@ -55,12 +55,14 @@ def main():
             query = parse_qs(parsed.query)
             protocol, mode = parsed.path.strip('/').split('/')[:2]
             if query.get('t') == ['caps']:
-                generic = 'no' if mode == 'specialized' else 'yes'
+                generic = 'no' if mode in ('specialized', 'title-only') else 'yes'
                 specialized = 'no' if mode == 'generic' else 'yes'
+                tv_params = 'title' if mode == 'title-only' else 'q,season,ep,tvdbid'
+                movie = 'no' if mode in ('generic', 'title-only') else 'yes'
                 body = (f'<caps><server version="1.0"/><limits max="100" default="100"/>'
                         f'<searching><search available="{generic}" supportedParams="q"/>'
-                        f'<tv-search available="{specialized}" supportedParams="q,season,ep,tvdbid"/>'
-                        f'<movie-search available="{specialized}" supportedParams="q,imdbid,tmdbid"/>'
+                        f'<tv-search available="{specialized}" supportedParams="{tv_params}"/>'
+                        f'<movie-search available="{movie}" supportedParams="q,imdbid,tmdbid"/>'
                         '</searching><categories><category id="5000" name="TV"/>'
                         '<category id="2000" name="Movies"/></categories></caps>')
             else:
@@ -134,7 +136,7 @@ def main():
         profile = api('appprofile')[0]['id']
         indexers = []
         for protocol in ('Torznab', 'Newznab'):
-            for mode in ('both', 'generic', 'specialized'):
+            for mode in ('both', 'generic', 'specialized', 'title-only'):
                 body = copy.deepcopy(next(s for s in schemas if s['implementation'] == protocol))
                 body.update(name=f'Trial {protocol} {mode}', enable=True, appProfileId=profile, priority=25, tags=[])
                 values = {'baseUrl': f'http://127.0.0.1:{mock.server_port}',
@@ -145,29 +147,41 @@ def main():
                 created = api('indexer', body)
                 indexers.append((created['id'], protocol, mode))
 
-        for search_type, cat in (('tvpack', '5000'), ('moviepack', '2000')):
+        for search_type, cat in (('tvpack', '5000'), ('moviepack', '2000'),
+                                 ('tvsearch', '5000'), ('movie', '2000')):
             queries.clear()
-            results = api('search?' + urlencode({'type': search_type, 'query': 'Example'}))
-            assert len(results) == 6, f'{search_type}: expected all six indexers, got {len(results)}'
+            results = api('search?' + urlencode({'type': search_type, 'query': 'Example', 'categories': cat}))
+            expected = 8 if cat == '5000' else 6
+            assert len(results) == expected, f'{search_type}: expected {expected} indexers, got {len(results)}'
             assert all(r['title'] == titles[cat] for r in results)
             assert all(r['size'] == 123456789 for r in results)
             assert all(r.get('seeders') == 3 for r in results if r['protocol'] == 'torrent')
             for protocol, mode, query in queries:
-                assert query['t'] == (['tvsearch' if cat == '5000' else 'movie'] if mode == 'specialized' else ['search']), (mode, query.get('t'))
-                assert query['q'] == ['Example']
+                assert query['t'] == (['tvsearch' if cat == '5000' else 'movie'] if mode in ('specialized', 'title-only') else ['search']), (mode, query.get('t'))
+                assert query['title' if mode == 'title-only' else 'q'] == ['Example']
+                if mode == 'title-only':
+                    assert 'q' not in query
                 assert not {'season', 'ep', 'year', 'imdbid', 'tmdbid', 'tvdbid'}.intersection(query)
 
         # Sonarr/Radarr keep using standard Torznab/Newznab endpoints. Check
         # that their broad searches and RSS preserve the complete release.
         for indexer, protocol, mode in indexers:
             caps = ET.fromstring(request(f'{indexer}/api?t=caps', raw=True))
-            assert caps.find('searching/search').get('available') == ('no' if mode == 'specialized' else 'yes')
+            assert caps.find('searching/search').get('available') == ('no' if mode in ('specialized', 'title-only') else 'yes')
+            if mode == 'title-only':
+                assert 'title' in caps.find('searching/tv-search').get('supportedParams').split(',')
             for cat in ('5000', '2000'):
+                if mode == 'title-only' and cat == '2000':
+                    continue
                 kind = 'search' if mode == 'generic' else 'tvsearch' if cat == '5000' else 'movie'
-                xml = ET.fromstring(request(f'{indexer}/api?' + urlencode({'t': kind, 'cat': cat, 'q': 'Example'}), raw=True))
+                param = 'title' if mode == 'title-only' else 'q'
+                queries.clear()
+                xml = ET.fromstring(request(f'{indexer}/api?' + urlencode({'t': kind, 'cat': cat, param: 'Example'}), raw=True))
                 item = xml.find('channel/item')
                 assert item is not None and item.findtext('title') == titles[cat]
                 assert f'127.0.0.1:{port}' in item.find('enclosure').get('url'), 'Download was not proxied'
+                if mode == 'title-only':
+                    assert queries and all(q.get('title') == ['Example'] and 'q' not in q for _, _, q in queries), 'TV title was lost in the proxy'
 
         try:
             api('search?' + urlencode({'type': 'tvpack', 'query': 'Example {Season:1}'}))
@@ -181,7 +195,8 @@ def main():
         stop()
         start()
         assert len(api('search?' + urlencode({'type': 'moviepack', 'query': 'Example'}))) == 6
-        print('PASS: six capability/protocol combinations, pack searches, standard proxy, metadata, ordinary searches and restart')
+        assert len(api('search?' + urlencode({'type': 'tvpack', 'query': 'Example'}))) == 8
+        print('PASS: eight capability/protocol combinations, pack searches, standard proxy, metadata, ordinary searches and restart')
         print(f'Trial logs: {root}')
     finally:
         stop()

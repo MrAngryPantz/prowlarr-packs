@@ -30,6 +30,7 @@ namespace NzbDrone.Core.Indexers.Newznab
         public IndexerPageableRequestChain GetSearchRequests(MovieSearchCriteria searchCriteria)
         {
             var capabilities = _capabilitiesProvider.GetCapabilities(Settings, Definition);
+            var searchType = searchCriteria.SearchType;
 
             var pageableRequests = new IndexerPageableRequestChain();
             var parameters = new NameValueCollection();
@@ -52,7 +53,7 @@ namespace NzbDrone.Core.Indexers.Newznab
             //Workaround issue with Sphinx search returning garbage results on some indexers. If we don't use id parameters, fallback to t=search
             if (parameters.Count == 0 && (searchCriteria.SearchTerm.IsNullOrWhiteSpace() || capabilities.SearchAvailable))
             {
-                searchCriteria.SearchType = "search";
+                searchType = "search";
 
                 if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.SearchAvailable)
                 {
@@ -74,7 +75,8 @@ namespace NzbDrone.Core.Indexers.Newznab
 
             pageableRequests.Add(GetPagedRequests(searchCriteria,
                 capabilities,
-                parameters));
+                parameters,
+                searchType));
 
             return pageableRequests;
         }
@@ -124,6 +126,7 @@ namespace NzbDrone.Core.Indexers.Newznab
         public IndexerPageableRequestChain GetSearchRequests(TvSearchCriteria searchCriteria)
         {
             var capabilities = _capabilitiesProvider.GetCapabilities(Settings, Definition);
+            var searchType = searchCriteria.SearchType;
 
             var pageableRequests = new IndexerPageableRequestChain();
             var parameters = new NameValueCollection();
@@ -166,7 +169,7 @@ namespace NzbDrone.Core.Indexers.Newznab
             //Workaround issue with Sphinx search returning garbage results on some indexers. If we don't use id parameters, fallback to t=search
             if (parameters.Count == 0 && (searchCriteria.SearchTerm.IsNullOrWhiteSpace() || capabilities.SearchAvailable))
             {
-                searchCriteria.SearchType = "search";
+                searchType = "search";
 
                 if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.SearchAvailable)
                 {
@@ -179,6 +182,10 @@ namespace NzbDrone.Core.Indexers.Newznab
                 {
                     parameters.Set("q", NewsnabifyTitle(searchCriteria.SearchTerm));
                 }
+                else if (searchCriteria.SearchTerm.IsNotNullOrWhiteSpace() && capabilities.TvSearchTitleAvailable)
+                {
+                    parameters.Set("title", NewsnabifyTitle(searchCriteria.SearchTerm));
+                }
             }
 
             if (parameters.Count == 0 && searchCriteria.SearchTerm.IsNotNullOrWhiteSpace())
@@ -188,7 +195,8 @@ namespace NzbDrone.Core.Indexers.Newznab
 
             pageableRequests.Add(GetPagedRequests(searchCriteria,
                 capabilities,
-                parameters));
+                parameters,
+                searchType));
 
             return pageableRequests;
         }
@@ -252,9 +260,9 @@ namespace NzbDrone.Core.Indexers.Newznab
             return pageableRequests;
         }
 
-        private IEnumerable<IndexerRequest> GetPagedRequests(SearchCriteriaBase searchCriteria, IndexerCapabilities capabilities, NameValueCollection parameters)
+        private IEnumerable<IndexerRequest> GetPagedRequests(SearchCriteriaBase searchCriteria, IndexerCapabilities capabilities, NameValueCollection parameters, string searchType = null)
         {
-            var searchUrl = string.Format("{0}{1}?t={2}&extended=1", Settings.BaseUrl.TrimEnd('/'), Settings.ApiPath.TrimEnd('/'), searchCriteria.SearchType);
+            var searchUrl = string.Format("{0}{1}?t={2}&extended=1", Settings.BaseUrl.TrimEnd('/'), Settings.ApiPath.TrimEnd('/'), searchType ?? searchCriteria.SearchType);
             var categories = capabilities.Categories.MapTorznabCapsToTrackers(searchCriteria.Categories);
 
             if (categories != null && categories.Any())

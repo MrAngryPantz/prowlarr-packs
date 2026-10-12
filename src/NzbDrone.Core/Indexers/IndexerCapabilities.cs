@@ -18,7 +18,8 @@ namespace NzbDrone.Core.Indexers
         TmdbId,
         DoubanId,
         Genre,
-        Year
+        Year,
+        Title
     }
 
     public enum MovieSearchParam
@@ -83,6 +84,7 @@ namespace NzbDrone.Core.Indexers
         public bool TvSearchDoubanAvailable => TvSearchParams.Contains(TvSearchParam.DoubanId);
         public bool TvSearchGenreAvailable => TvSearchParams.Contains(TvSearchParam.Genre);
         public bool TvSearchYearAvailable => TvSearchParams.Contains(TvSearchParam.Year);
+        public bool TvSearchTitleAvailable => TvSearchParams.Contains(TvSearchParam.Title);
 
         public List<MovieSearchParam> MovieSearchParams;
         public bool MovieSearchAvailable => MovieSearchParams.Count > 0;
@@ -280,6 +282,11 @@ namespace NzbDrone.Core.Indexers
         private string SupportedTvSearchParams()
         {
             var parameters = new List<string> { "q" }; // q is always enabled
+            if (TvSearchTitleAvailable)
+            {
+                parameters.Add("title");
+            }
+
             if (TvSearchSeasonAvailable)
             {
                 parameters.Add("season");

@@ -85,6 +85,36 @@ namespace NzbDrone.Core.Test.IndexerSearchTests
             }
         }
 
+        [Test]
+        public async Task should_use_tv_title_capability_for_pack_search()
+        {
+            _caps.TvSearchParams.Add(TvSearchParam.Title);
+            await Subject.Search(new NewznabRequest { t = "tvpack", q = "Example" }, new List<int> { 1 }, true);
+            var tv = _searches.Single().Should().BeOfType<TvSearchCriteria>().Subject;
+            tv.SearchTerm.Should().Be("Example");
+            tv.Season.Should().BeNull();
+            tv.Episode.Should().BeNull();
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" ")]
+        public async Task should_forward_tv_title_when_q_is_absent(string query)
+        {
+            await Subject.Search(new NewznabRequest { t = "tvsearch", q = query, title = " Example ", season = 2, ep = "3" }, new List<int> { 1 }, false);
+            var tv = _searches.Single().Should().BeOfType<TvSearchCriteria>().Subject;
+            tv.SearchTerm.Should().Be("Example");
+            tv.Season.Should().Be(2);
+            tv.Episode.Should().Be("3");
+        }
+
+        [Test]
+        public async Task should_keep_q_when_both_title_parameters_are_supplied()
+        {
+            await Subject.Search(new NewznabRequest { t = "tvsearch", q = "Query", title = "Title" }, new List<int> { 1 }, false);
+            _searches.Single().SearchTerm.Should().Be("Query");
+        }
+
         [TestCase("tvpack")]
         [TestCase("moviepack")]
         public async Task should_skip_id_only_indexers(string type)

@@ -60,6 +60,18 @@ namespace NzbDrone.Core.Test.IndexerTests.NewznabTests
         }
 
         [Test]
+        public void should_preserve_title_only_tv_capability_for_clients()
+        {
+            GivenCapsResponse("<caps><searching><search available=\"no\"/><tv-search available=\"yes\" supportedParams=\"title\"/></searching></caps>");
+            var caps = Subject.GetCapabilities(_settings, _definition);
+            caps.SearchAvailable.Should().BeFalse();
+            caps.TvSearchParams.Should().Equal(TvSearchParam.Title);
+            var tv = caps.GetXDocument().Root.Element("searching").Element("tv-search");
+            tv.Attribute("available").Value.Should().Be("yes");
+            tv.Attribute("supportedParams").Value.Split(',').Should().Contain("title");
+        }
+
+        [Test]
         public void should_report_pagesize()
         {
             GivenCapsResponse(_caps);

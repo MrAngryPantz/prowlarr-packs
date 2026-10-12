@@ -91,6 +91,48 @@ namespace NzbDrone.Core.Test.IndexerTests.NewznabTests
             Subject.GetSearchRequests(_movieSearchCriteria).GetAllTiers().Should().BeEmpty();
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void should_use_tv_title_parameter_when_q_is_not_supported(bool episodeSearch)
+        {
+            _capabilities.SearchParams.Clear();
+            _capabilities.TvSearchParams = new List<TvSearchParam> { TvSearchParam.Title, TvSearchParam.Season, TvSearchParam.Ep };
+            _tvSearchCriteria.SearchType = "tvsearch";
+            _tvSearchCriteria.Season = episodeSearch ? 2 : null;
+            _tvSearchCriteria.Episode = episodeSearch ? "3" : null;
+
+            var query = Subject.GetSearchRequests(_tvSearchCriteria).GetAllTiers().First().First().Url.Query;
+            query.Should().Contain("t=tvsearch").And.Contain("title=Star").And.NotContain("&q=");
+            if (episodeSearch)
+            {
+                query.Should().Contain("season=2").And.Contain("ep=3");
+            }
+            else
+            {
+                query.Should().NotContain("season=").And.NotContain("ep=");
+            }
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void should_keep_search_mode_separate_between_indexers(bool television)
+        {
+            _capabilities.SearchParams = new List<SearchParam> { SearchParam.Q };
+            _capabilities.TvSearchParams = new List<TvSearchParam> { TvSearchParam.Q };
+            _capabilities.MovieSearchParams = new List<MovieSearchParam> { MovieSearchParam.Q };
+            _tvSearchCriteria.SearchType = "tvsearch";
+            _tvSearchCriteria.Season = null;
+            _movieSearchCriteria.SearchType = "movie";
+            var generic = television ? Subject.GetSearchRequests(_tvSearchCriteria) : Subject.GetSearchRequests(_movieSearchCriteria);
+
+            _capabilities.SearchParams.Clear();
+            var specialized = television ? Subject.GetSearchRequests(_tvSearchCriteria) : Subject.GetSearchRequests(_movieSearchCriteria);
+            var criteria = television ? (SearchCriteriaBase)_tvSearchCriteria : _movieSearchCriteria;
+            criteria.SearchType.Should().Be(television ? "tvsearch" : "movie");
+            generic.GetAllTiers().First().First().Url.Query.Should().Contain("t=search");
+            specialized.GetAllTiers().First().First().Url.Query.Should().Contain("t=" + criteria.SearchType);
+        }
+
         [Test]
         public void should_not_get_unlimited_pages()
         {

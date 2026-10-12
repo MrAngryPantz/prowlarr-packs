@@ -4,7 +4,7 @@ This fork improves pack searches for [Sonarr Multi-Season](https://github.com/Mr
 
 In Search, open Query Options and choose **Multi-season packs** or **Movie packs**. Enter a series or collection title. Prowlarr uses each indexer's supported title search without restricting it to one episode, season or movie ID. TV and movie categories are selected automatically unless you choose categories yourself. Query limits, pagination, indexer priorities and category filters still apply.
 
-The Newznab/Torznab proxy also fixes a title-search fallback: an indexer that supports only TV or movie text searches keeps that endpoint and its search title. General search is used only when supported. This fix applies to the normal searches sent by Sonarr and Radarr as well as the new manual search modes.
+The Newznab/Torznab proxy also fixes a title-search fallback: an indexer that supports only TV or movie text searches keeps that endpoint and its search title. TV indexers using `title` instead of `q` are supported, including those without episode or season filters. General text search is used only when supported. These fixes apply to the normal searches sent by Sonarr and Radarr as well as the new manual search modes.
 
 ## Using the four applications together
 
@@ -36,7 +36,7 @@ ln -s ../UI _output/net8.0/UI
 python3 scripts/test-pack-searches.py --app _output/net8.0/Prowlarr.dll
 ```
 
-The isolated trial starts a fresh application with six simulated indexers: Newznab and Torznab, each with general, specialised and combined search capabilities. It checks pack searches, normal proxy requests, preserved metadata, ordinary episode searches and a restart. It uses local test servers and never downloads real media or opens an existing database. Temporary logs are retained for inspection.
+The isolated trial starts a fresh application with eight simulated indexers: Newznab and Torznab, each with general, specialised, combined and TV title-only search capabilities. It checks pack searches, normal proxy requests, preserved metadata, ordinary episode searches and a restart. It uses local test servers and never downloads real media or opens an existing database. Temporary logs are retained for inspection.
 
 On Windows, run `scripts/build-windows.ps1` in PowerShell with the same build tools. It produces `_artifacts/prowlarr-packs-win-x64.zip`, including the web interface and .NET runtime. Extract it into its own folder and set `$env:PROWLARR__SERVER__PORT = '9697'` and start `Prowlarr.Console.exe -nobrowser -data=C:\ProwlarrPackTest`. Use a fresh data directory and a different port from your normal installation. The package does not install a Windows service automatically.
 

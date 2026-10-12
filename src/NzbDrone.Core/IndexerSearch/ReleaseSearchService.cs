@@ -77,7 +77,7 @@ namespace NzbDrone.Core.IndexerSearch
 
                 var capabilities = indexer.GetCapabilities();
 
-                if (television && capabilities.TvSearchParams.Contains(TvSearchParam.Q))
+                if (television && (capabilities.TvSearchParams.Contains(TvSearchParam.Q) || capabilities.TvSearchTitleAvailable))
                 {
                     return indexer.Fetch(tv);
                 }
@@ -193,7 +193,7 @@ namespace NzbDrone.Core.IndexerSearch
 
             spec.Categories = query.cat != null ? query.cat.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).Select(int.Parse).ToArray() : Array.Empty<int>();
 
-            spec.SearchTerm = query.q?.Trim();
+            spec.SearchTerm = (string.IsNullOrWhiteSpace(query.q) && query.t == "tvsearch" ? query.title : query.q)?.Trim();
             spec.SearchType = query.t;
             spec.Limit = query.limit;
             spec.Offset = query.offset;
